@@ -20,10 +20,6 @@ client.user_vote_map = {}
 client.has_voted = set()
 client.active_members = set()
 
-def set_poll_id(id):
-    print(id)
-    poll_msg_id = id
-
 
 @client.event
 async def on_ready():
@@ -50,7 +46,6 @@ async def on_message(message):
         game_dict_raw = arg_strings[0].split('$')
         print(game_dict_raw)
         day_limit = int(arg_strings[1])
-        #client.active_members = set(arg_strings[2].split('$'))
         game_dict = {}
         vote_dict = {}
 
@@ -58,6 +53,7 @@ async def on_message(message):
         # vote maps game -> vote count
         for game in game_dict_raw:
             game_dict[game.split('#')[1][:1]] = game.split('#')[0]
+            #game_dict[game.split('#')[1][1:-1]] = game.split('#')[0]
             vote_dict[game.split('#')[0]] = 0
         print(game_dict)
         sent_message = await message.channel.send(f"""Voting on the following games:\n{game_dict}""")
@@ -71,28 +67,44 @@ async def on_message(message):
     if message.content.startswith('!gescstatus'):
         sent_message = await message.channel.send(f"""vote status:\n{client.vote_dict}""")
 
-    if message.content.startswith('!gescendvote'):
-        sent_message = await message.channel.send(f"""vote status:\n{client.vote_dict}""")
+    if message.content.startswith('!gescend'):
+        if not client.vote_running:
+            sent_message = await message.channel.send(f"no vote running, use !geschelp for info")
+            return
+        highest = 0
+        winning_game = max(client.vote_dict, key=client.vote_dict.get)
+        output = winning_game
+        higest = client.vote_dict[winning_game]
+
+        # check for tie
+        for game in client.vote_dict:
+            if client.vote_dict[game] == client.vote_dict[winning_game] and game != winning_game:
+                output = "it was a tie lol"
+
+        sent_message = await message.channel.send(f"""vote over! the winner is {output}!\n{client.vote_dict}""")
+        client.vote_running = False
 
     if message.content.startswith('!gescattended'):
         #if no vote running
         if not client.vote_running:
             sent_message = await message.channel.send(f"no vote running, use !geschelp for info")
             return
-        '''
-        #if you already attended, toggle and reset vote
+
+        #if you already attended, toggle but add to your current vote what it would've been (+2 or -2)
+        #This is cuz vote gets reset when it's changed
         if message.author.id in client.active_members:
             client.active_members.remove(message.author.id)
-            client.vote_dict[client.user_vote_map[user.id]] -= 5
-            sent_message = await message.channel.send(f"user {message.author.id} didn't attend, reset vote (if they already voted)")
-        '''
+            if message.author.id in client.user_vote_map:
+                client.vote_dict[client.user_vote_map[message.author.id]] -= 2
+            sent_message = await message.channel.send(f"nvm, user {message.author.id} didn't attend,vote power updated")
+
         # reset vote if already voted
         if message.author.id in client.user_vote_map:
-            client.vote_dict[client.user_vote_map[message.author.id]] -= 3
+            client.vote_dict[client.user_vote_map[message.author.id]] += 2
 
         # add to members present at meeting
         client.active_members.add(message.author.id)
-        sent_message = await message.channel.send(f"user {message.author.id} has extra vote power, vote reset (if they already voted)")
+        sent_message = await message.channel.send(f"user {message.author.id} has extra vote power, vote reseted (if they already voted)")
 
 
 @client.event
