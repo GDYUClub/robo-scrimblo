@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import discord
-import emoji
 from api_key import apikey
 from datetime import datetime, timedelta
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
