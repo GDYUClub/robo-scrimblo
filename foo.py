@@ -2,8 +2,12 @@
 import discord
 import emoji
 from api_key import apikey
+from datetime import datetime, timedelta
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 intents = discord.Intents.default()
+
+scheduler = AsyncIOScheduler()
 
 intents.message_content = True
 intents.members = True
@@ -14,7 +18,6 @@ intents.reactions = True
 client = discord.Client(intents=intents)
 
 client.vote_running = False
-winning_game = 'no vote rn'
 poll_msg_id = ''
 client.user_vote_map = {}
 client.has_voted = set()
@@ -24,6 +27,8 @@ client.active_members = set()
 @client.event
 async def on_ready():
     print(f'we have logged in as {client.user}')
+    if not scheduler.running:
+        scheduler.start()
 
 
 @client.event
@@ -45,18 +50,31 @@ async def on_message(message):
         arg_strings = raw_msg.split(',')
         game_dict_raw = arg_strings[0].split('$')
         print(game_dict_raw)
-        day_limit = int(arg_strings[1])
+        hours = int(arg_strings[1])
         game_dict = {}
         vote_dict = {}
+
+        # calculate end time
+        end_time = datetime.now() + timedelta(hours=hours)
+        scheduler.add_job(end_vote, 'date', run_date=end_time, args=[message])
+
 
         # game_maps emoji -> game
         # vote maps game -> vote count
         for game in game_dict_raw:
-            game_dict[game.split('#')[1][:1]] = game.split('#')[0]
+            game_dict[game.split('#')[1]] = game.split('#')[0]
+            #game_dict[game.split('#')[1][:1]] = game.split('#')[0]
             #game_dict[game.split('#')[1][1:-1]] = game.split('#')[0]
             vote_dict[game.split('#')[0]] = 0
         print(game_dict)
-        sent_message = await message.channel.send(f"""Voting on the following games:\n{game_dict}""")
+        vote_annoucement = '\nNew GESC Vote for the following Games:\n'
+        for game in game_dict:
+            output = f'{game} -> {game_dict[game]}\n'
+            vote_annoucement += output
+        vote_annoucement+= f'vote ends at {end_time}'
+
+
+        sent_message = await message.channel.send(vote_annoucement)
         client.poll_msg_id = sent_message.id
         client.game_dict = game_dict
         client.vote_dict = vote_dict
@@ -68,21 +86,7 @@ async def on_message(message):
         sent_message = await message.channel.send(f"""vote status:\n{client.vote_dict}""")
 
     if message.content.startswith('!gescend'):
-        if not client.vote_running:
-            sent_message = await message.channel.send(f"no vote running, use !geschelp for info")
-            return
-        highest = 0
-        winning_game = max(client.vote_dict, key=client.vote_dict.get)
-        output = winning_game
-        higest = client.vote_dict[winning_game]
-
-        # check for tie
-        for game in client.vote_dict:
-            if client.vote_dict[game] == client.vote_dict[winning_game] and game != winning_game:
-                output = "it was a tie lol"
-
-        sent_message = await message.channel.send(f"""vote over! the winner is {output}!\n{client.vote_dict}""")
-        client.vote_running = False
+        await end_vote(message)
 
     if message.content.startswith('!gescattended'):
         #if no vote running
@@ -96,7 +100,7 @@ async def on_message(message):
             client.active_members.remove(message.author.id)
             if message.author.id in client.user_vote_map:
                 client.vote_dict[client.user_vote_map[message.author.id]] -= 2
-            sent_message = await message.channel.send(f"nvm, user {message.author.id} didn't attend,vote power updated")
+            sent_message = await message.channel.send(f"nvm, user {message.author} didn't attend,vote power updated")
 
         # reset vote if already voted
         if message.author.id in client.user_vote_map:
@@ -104,8 +108,41 @@ async def on_message(message):
 
         # add to members present at meeting
         client.active_members.add(message.author.id)
-        sent_message = await message.channel.send(f"user {message.author.id} has extra vote power, vote reseted (if they already voted)")
+        sent_message = await message.channel.send(f"user {message.author} has extra vote power, vote reseted (if they already voted)")
 
+    if message.content.startswith('!geschelp'):
+        msg_content ="""
+The GESC Vote bot allows us to automate voting for the Game Enthusiasts sub collective.\n
+It features the following commands:
+``!gescvote``: starts a new vote if there is no vote currently happening. Info must be formatted as follows:
+``!gescvote(game1#emoji1$game2#emoji2$game3$emoji3$...,vote_durration)``
+- you can have an unlimited number of games as votes
+- vote duration is the number of hours you want the vote to last for
+- make sure there are no spaces in the input
+- if you want to use a server emote, you'll need to get it's ID, type it out with a \ to return it's id (but don't pass the \ into the command, like <:floomba:919982797018517515>)
+``!gescend``: ends the current vote before the time limit
+``!gescattended``: gives you extra voting power if you attended the last meeting, if you already voted the value will be updated, call this command again to remove your extra power.
+- if you attended last meeting, your vote is worth 5, otherwise it's worth 3
+"""
+        sent_message = await message.channel.send(msg_content)
+
+async def end_vote(message):
+    print('ending the vote')
+    if not client.vote_running:
+        sent_message = await message.channel.send(f"no vote running, use !geschelp for info")
+        return
+    highest = 0
+    winning_game = max(client.vote_dict, key=client.vote_dict.get)
+    output = winning_game
+    higest = client.vote_dict[winning_game]
+
+    # check for tie
+    for game in client.vote_dict:
+        if client.vote_dict[game] == client.vote_dict[winning_game] and game != winning_game:
+            output = "A Tie"
+
+    sent_message = await message.channel.send(f"""Vote over!\n The winner is: {output}!\n{client.vote_dict}""")
+    client.vote_running = False
 
 @client.event
 
@@ -135,7 +172,7 @@ async def on_reaction_add(reaction, user):
         vote_power = 5
 
     # add vote to user map and vote count
-    print(f'{user.id} voted')
+    print(f'{user} voted')
 
     # remove previous vote if already voted
     if user.id in client.user_vote_map:
@@ -146,7 +183,7 @@ async def on_reaction_add(reaction, user):
         client.user_vote_map[user.id] = ''
     client.user_vote_map[user.id] = game_chosen
     client.vote_dict[game_chosen] += vote_power
-    sent_message = await reaction.message.channel.send(f'{user.id} (who?) voted')
+    sent_message = await reaction.message.channel.send(f'{user} voted')
 
     await reaction.remove(user)
 
