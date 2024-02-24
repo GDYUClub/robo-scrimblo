@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 import discord
-from gescbot.gesc import Gesc
 from api_key import apikey
 from datetime import datetime, timedelta
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from discord.ext import commands
+from gescbot import Gesc
 
 intents = discord.Intents.default()
 
@@ -21,7 +21,7 @@ bot = commands.Bot(command_prefix='!',intents=intents)
 async def on_ready():
     print(f'{bot.user} has logged in')
     try:
-        bot.load_extension('gescbot')
+        await bot.load_extension('gescbot')
     except Exception as e:
         print(f'failed to load extension: {e}')
 

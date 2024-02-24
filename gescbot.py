@@ -8,6 +8,11 @@ intents = discord.Intents.default()
 
 scheduler = AsyncIOScheduler()
 
+vote_running = False
+poll_msg_id = ''
+user_vote_map = {}
+has_voted = set()
+active_members = set()
 
 class Gesc(commands.Cog):
 
@@ -18,6 +23,10 @@ class Gesc(commands.Cog):
     async def gesc(self, ctx):
         await ctx.send('hello from the gesc file!')
 
+    @commands.command()
+    async def gesc(self, ctx):
+        await ctx.send('hello from the gesc file!')
 
-def setup(bot):
-  await bot.add_cog(Gesc(bot))
+
+async def setup(bot):
+    await bot.add_cog(Gesc(bot))
