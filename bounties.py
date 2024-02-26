@@ -19,11 +19,72 @@ class BountyCog(commands.Cog):
         await ctx.send('hello from the bounty file!')
 
     @commands.command()
-    async def createbounty(self,ctx):
-        #it'll be interactive and stuff
-        #ask them for all the info then run the bounty constructor
-        #pass that into the mongo db
-        pass
+    async def createbounty(self,ctx, title, points, deadlinestr):
+        deadline = datetime
+        if len(title) < 1:
+            await ctx.send('ERROR: Invalid title')
+            await ctx.send('bounty creation aborted')
+            return
+        try:
+            int(points)
+        except:
+            await ctx.send('ERROR: point not interger')
+            await ctx.send('bounty creation aborted')
+            return
+        if int(points) < 1:
+            await ctx.send('ERROR: point value lower than 0')
+            await ctx.send('bounty creation aborted')
+            return
+
+        try:
+            year = int(deadlinestr[:4])
+            month = int(deadlinestr[5:7])
+            day = int(deadlinestr[8:10])
+            hour = int(deadlinestr[11:13])
+            minute = int(deadlinestr[14:16])
+            deadline = datetime(year,month, day, hour, minute)
+        except:
+            await ctx.send('ERROR: Invalid Deadline Date')
+            await ctx.send('bounty creation aborted')
+            return
+
+        await ctx.send('please paste the description of the bounty')
+        try:
+            # Wait for a message that meets the condition
+            description = await self.bot.wait_for('message', timeout=60.0, check=check)
+        except:
+            # no description pasted in 60 seconds
+            await ctx.send('Sorry, you took too long to respond.')
+            await ctx.send('bounty creation aborted')
+            return
+        else:
+            if len(description) < 1:
+                await ctx.send('invalid description')
+                return
+
+            await ctx.send(f'title: {title}\n scrimbuck value: {points}\n deadline: {deadline}\n description: {description}')
+
+        await ctx.send('confirm? (y/n)')
+        try:
+            # Wait for a message that meets the condition
+            message = await self.bot.wait_for('message', timeout=60.0, check=check)
+        except:
+            # no description pasted in 60 seconds
+            await ctx.send('Sorry, you took too long to respond.')
+            await ctx.send('bounty creation aborted')
+            return
+        else:
+            if message.content == 'y':
+                #make bounty
+                pass
+            if message.content == 'n':
+                await ctx.send('bounty creation aborted')
+                return
+            else:
+                await ctx.send('ERROR: invalid response, bounty creation aborted')
+                return
+
+
 
     @commands.command()
     async def clearedbounty(self, ctx,user,bounty):
