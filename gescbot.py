@@ -24,7 +24,7 @@ class Gesc(commands.Cog):
         await ctx.send('hello from the gesc file!')
 
     @commands.command()
-    async def help(self, ctx):
+    async def geschelp(self, ctx):
         msg_content ="""
 The GESC Vote bot allows us to automate voting for the Game Enthusiasts sub collective.\n
 It features the following commands:
