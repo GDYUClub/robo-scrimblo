@@ -2,12 +2,10 @@
 import discord
 from api_key import apikey
 from datetime import datetime, timedelta
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from discord.ext import commands
 
 intents = discord.Intents.default()
 
-scheduler = AsyncIOScheduler()
 
 intents.message_content = True
 intents.members = True
