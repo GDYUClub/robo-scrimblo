@@ -100,7 +100,7 @@ async def start_vote(message):
     if client.vote_running:
         sent_message = await message.channel.send("Vote already running, Use !gescendvote to end current vote")
 
-    # games and emoji in key value pairs, time limit, members at last meeting
+    # games and emoji in alue pairs, time limit, members at last meeting
     # !gescvote(funger#emoji1$funger2#emoji2$Confident and Satiated#emoji3,2,memberids)
     raw_msg = message.content[10:-1]
     arg_strings = raw_msg.split(',')
