@@ -51,32 +51,35 @@ class BountyCog(commands.Cog):
         await ctx.send('please paste the description of the bounty')
         try:
             # Wait for a message that meets the condition
-            description = await self.bot.wait_for('message', timeout=60.0, check=check)
-        except:
+            description = await self.bot.wait_for('message',timeout=60.0)
+        except Exception as error:
             # no description pasted in 60 seconds
+            await ctx.send(f"error occurred {error}")
             await ctx.send('Sorry, you took too long to respond.')
             await ctx.send('bounty creation aborted')
             return
         else:
-            if len(description) < 1:
+            if len(description.content) < 1:
                 await ctx.send('invalid description')
                 return
 
-            await ctx.send(f'title: {title}\n scrimbuck value: {points}\n deadline: {deadline}\n description: {description}')
+            await ctx.send(f'title: {title}\n scrimbuck value: {points}\n deadline: {deadline}\n description: {description.content}')
 
         await ctx.send('confirm? (y/n)')
         try:
             # Wait for a message that meets the condition
-            message = await self.bot.wait_for('message', timeout=60.0, check=check)
-        except:
+            message = await self.bot.wait_for('message',timeout=60.0)
+        except Exception as error:
             # no description pasted in 60 seconds
+            await ctx.send(f"error occurred {error}")
             await ctx.send('Sorry, you took too long to respond.')
             await ctx.send('bounty creation aborted')
             return
         else:
             if message.content == 'y':
                 #make bounty
-                pass
+                await ctx.send('bounty created, database id is (id)')
+                return
             if message.content == 'n':
                 await ctx.send('bounty creation aborted')
                 return
