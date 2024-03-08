@@ -3,10 +3,14 @@ import discord
 from datetime import datetime, timedelta
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from discord.ext import commands
+from pymongo_get_db import get_database
 
 intents = discord.Intents.default()
 
 scheduler = AsyncIOScheduler()
+
+db = get_database()
+bountyCollection = db['bounties']
 
 class BountyCog(commands.Cog):
 
@@ -20,6 +24,14 @@ class BountyCog(commands.Cog):
 
     @commands.command()
     async def createbounty(self,ctx, title, points, deadlinestr):
+        #make sure it responds to messages from the same user in the same channel
+        def check(message):
+            return message.author == ctx.author and message.channel == ctx.channel
+
+        role = discord.utils.find(lambda r: r.name == "Executives")
+        if role not in user.roles:
+            return
+
         deadline = datetime
         if len(title) < 1:
             await ctx.send('ERROR: Invalid title')
@@ -51,7 +63,7 @@ class BountyCog(commands.Cog):
         await ctx.send('please paste the description of the bounty')
         try:
             # Wait for a message that meets the condition
-            description = await self.bot.wait_for('message',timeout=60.0)
+            description = await self.bot.wait_for('message',check=check,timeout=60.0)
         except Exception as error:
             # no description pasted in 60 seconds
             await ctx.send(f"error occurred {error}")
@@ -68,7 +80,7 @@ class BountyCog(commands.Cog):
         await ctx.send('confirm? (y/n)')
         try:
             # Wait for a message that meets the condition
-            message = await self.bot.wait_for('message',timeout=60.0)
+            message = await self.bot.wait_for('message',check=check,timeout=60.0)
         except Exception as error:
             # no description pasted in 60 seconds
             await ctx.send(f"error occurred {error}")
@@ -78,8 +90,14 @@ class BountyCog(commands.Cog):
         else:
             if message.content == 'y':
                 #make bounty
-                await ctx.send('bounty created, database id is (id)')
-                return
+                bounty = {
+                    "title":title,
+                    "description":description.content,
+                    "points":points,
+                    "deadline":deadline
+                }
+                bountyCollection.insert_one(bounty)
+                await ctx.send('bounty created')
             if message.content == 'n':
                 await ctx.send('bounty creation aborted')
                 return
@@ -92,6 +110,22 @@ class BountyCog(commands.Cog):
     @commands.command()
     async def clearedbounty(self, ctx,user,bounty):
         pass
+
+    @commands.command()
+    async def testInsert(self,ctx):
+        title = "amongus"
+        description = "Contrary to popular belief, Lorem Ipsum is not simply random text. It has roots in a piece of classical Latin literature from 45 BC, making it over 2000 years old. Richard McClintock, a Latin professor at Hampden-Sydney College in Virginia, looked up one of the more obscure Latin words, consectetur, from a Lorem Ipsum passage, and going through the cites of the word in classical literature, discovered the undoubtable source."
+        points = 4
+        deadline = datetime.now()
+
+        bounty = {
+            "title":title,
+            "description":description,
+            "points":points,
+            "deadline":deadline
+        }
+        bountyCollection.insert_one(bounty)
+
 
     @commands.command()
     async def bountyleaderboard(self, ctx, n):

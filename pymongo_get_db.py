@@ -11,7 +11,7 @@ def get_database():
         print("Pinged your deployment. You successfully connected to MongoDB!")
     except Exception as e:
         print(e)
-
+    return client['BountiesDB']
 if __name__ == "__main__":
    # Get the database
-    dbname = get_database()
+    db = get_database()
