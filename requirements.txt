@@ -11,3 +11,4 @@ pytz==2024.1
 six==1.16.0
 tzlocal==5.2
 yarl==1.9.4
+pymongo==4.6.2

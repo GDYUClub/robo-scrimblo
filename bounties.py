@@ -14,7 +14,6 @@ bountyCollection = db['bounties']
 
 class BountyCog(commands.Cog):
 
-
     def __init__(self, bot):
         self.bot = bot
 
@@ -23,109 +22,114 @@ class BountyCog(commands.Cog):
         await ctx.send('hello from the bounty file!')
 
     @commands.command()
-    async def createbounty(self,ctx, title, points, deadlinestr):
+    @commands.has_role('Executives')
+    async def createbounty(self, ctx):
         #make sure it responds to messages from the same user in the same channel
         def check(message):
             return message.author == ctx.author and message.channel == ctx.channel
+        
+        async def waitForTitle():
+            await ctx.send('Paste bounty **Title** [String]:')
+            message = await self.bot.wait_for('message', check=check, timeout=60.0)
 
-        role = discord.utils.find(lambda r: r.name == "Executives")
-        if role not in user.roles:
-            return
-
-        deadline = datetime
-        if len(title) < 1:
-            await ctx.send('ERROR: Invalid title')
-            await ctx.send('bounty creation aborted')
-            return
-        try:
-            int(points)
-        except:
-            await ctx.send('ERROR: point not interger')
-            await ctx.send('bounty creation aborted')
-            return
-        if int(points) < 1:
-            await ctx.send('ERROR: point value lower than 0')
-            await ctx.send('bounty creation aborted')
-            return
+            if len(message.content.strip()) < 1:
+                await ctx.send('Invalid title')
+                return await waitForTitle()
+            else:
+                return message.content.strip()
 
         try:
-            year = int(deadlinestr[:4])
-            month = int(deadlinestr[5:7])
-            day = int(deadlinestr[8:10])
-            hour = int(deadlinestr[11:13])
-            minute = int(deadlinestr[14:16])
-            deadline = datetime(year,month, day, hour, minute)
-        except:
-            await ctx.send('ERROR: Invalid Deadline Date')
-            await ctx.send('bounty creation aborted')
+            title = await waitForTitle()
+        except TimeoutError:
+            await ctx.send('Sorry, you took too long to respond')
+            await ctx.send('Bounty creation aborted')
             return
+        
+        async def waitForDesc():
+            await ctx.send('Paste bounty **Description** [String]:')
+            message = await self.bot.wait_for('message', check=check, timeout=60.0)
 
-        await ctx.send('please paste the description of the bounty')
+            if len(message.content.strip()) < 1:
+                await ctx.send('Invalid description')
+                return await waitForDesc()
+            else:
+                return message.content.strip()
+
         try:
-            # Wait for a message that meets the condition
-            description = await self.bot.wait_for('message',check=check,timeout=60.0)
-        except Exception as error:
-            # no description pasted in 60 seconds
-            await ctx.send(f"error occurred {error}")
-            await ctx.send('Sorry, you took too long to respond.')
-            await ctx.send('bounty creation aborted')
+            description = await waitForDesc()
+        except TimeoutError:
+            await ctx.send('Sorry, you took too long to respond')
+            await ctx.send('Bounty creation aborted')
             return
-        else:
-            if len(description.content) < 1:
-                await ctx.send('invalid description')
-                return
+        
+        async def waitForPoints():
+            await ctx.send('Paste bounty reward **Scrimbucks** [Integer]:')
+            message = await self.bot.wait_for('message', check=check, timeout=60.0)
+            try:
+                return int(message.content.strip())
+            except Exception as error:
+                print(error)
+                await ctx.send('Invalid points value')
+                return await waitForPoints()                
 
-            await ctx.send(f'title: {title}\n scrimbuck value: {points}\n deadline: {deadline}\n description: {description.content}')
-
-        await ctx.send('confirm? (y/n)')
         try:
-            # Wait for a message that meets the condition
+            points = await waitForPoints()
+        except TimeoutError:
+            await ctx.send('Sorry, you took too long to respond')
+            await ctx.send('Bounty creation aborted')
+            return
+        
+        async def waitForDeadline():
+            await ctx.send('Paste bounty **Deadline** [yyyy-mm-dd hh:mm pp]:')
+            message = await self.bot.wait_for('message', check=check, timeout=60.0)
+            try:
+                return datetime.strptime(message.content.strip(), '%Y-%m-%d %I:%M %p')
+            except Exception as error:
+                print(error)
+                await ctx.send('Invalid deadline value')
+                return await waitForDeadline()
+
+        try:
+            deadline = await waitForDeadline()
+        except TimeoutError:
+            await ctx.send('Sorry, you took too long to respond')
+            await ctx.send('Bounty creation aborted')
+            return
+        
+        await ctx.send(f'**Title**: {title}\n**Description**: {description}\n**Scrimbucks**: {points}\n**Deadline**: {deadline.strftime("%Y-%m-%d %I:%M %p")}')
+        
+        await ctx.send('Confirm? (y/n)')
+        try:
             message = await self.bot.wait_for('message',check=check,timeout=60.0)
-        except Exception as error:
-            # no description pasted in 60 seconds
-            await ctx.send(f"error occurred {error}")
-            await ctx.send('Sorry, you took too long to respond.')
-            await ctx.send('bounty creation aborted')
+        except TimeoutError:
+            await ctx.send('Sorry, you took too long to respond')
+            await ctx.send('Bounty creation aborted')
             return
         else:
-            if message.content == 'y':
-                #make bounty
+            if message.content.strip().lower() == 'y':
                 bounty = {
-                    "title":title,
-                    "description":description.content,
-                    "points":points,
-                    "deadline":deadline
+                    "title": title,
+                    "description": description,
+                    "reward": points,
+                    "deadline": deadline
                 }
-                bountyCollection.insert_one(bounty)
-                await ctx.send('bounty created')
-            if message.content == 'n':
-                await ctx.send('bounty creation aborted')
+                try:
+                    new_id = bountyCollection.insert_one(bounty).inserted_id
+                    await ctx.send('Bounty created')
+                    await ctx.send(f'Id: {new_id}')
+                except Exception as error:
+                    print(error)
+                    await ctx.send('Bounty creation aborted')
+            elif message.content.strip().lower() == 'n':
+                await ctx.send('Bounty creation aborted')
                 return
             else:
-                await ctx.send('ERROR: invalid response, bounty creation aborted')
+                await ctx.send('Invalid response, bounty creation aborted')
                 return
-
-
 
     @commands.command()
     async def clearedbounty(self, ctx,user,bounty):
         pass
-
-    @commands.command()
-    async def testInsert(self,ctx):
-        title = "amongus"
-        description = "Contrary to popular belief, Lorem Ipsum is not simply random text. It has roots in a piece of classical Latin literature from 45 BC, making it over 2000 years old. Richard McClintock, a Latin professor at Hampden-Sydney College in Virginia, looked up one of the more obscure Latin words, consectetur, from a Lorem Ipsum passage, and going through the cites of the word in classical literature, discovered the undoubtable source."
-        points = 4
-        deadline = datetime.now()
-
-        bounty = {
-            "title":title,
-            "description":description,
-            "points":points,
-            "deadline":deadline
-        }
-        bountyCollection.insert_one(bounty)
-
 
     @commands.command()
     async def bountyleaderboard(self, ctx, n):
@@ -143,18 +147,6 @@ class BountyCog(commands.Cog):
 
         else:
             await ctx.send('Forum channel not found.')
-
-
-
-class Bounty:
-    def __init__(self, title, message, points, deadline):
-        self.title = title
-        self.message = message
-        self.points = points
-        self.deadline = deadline
-
-
-
 
 async def setup(bot):
     await bot.add_cog(BountyCog(bot))
