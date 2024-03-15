@@ -68,7 +68,6 @@ class BountyCog(commands.Cog):
             try:
                 return int(message.content.strip())
             except Exception as error:
-                print(error)
                 await ctx.send('Invalid points value')
                 return await waitForPoints()                
 
@@ -85,7 +84,6 @@ class BountyCog(commands.Cog):
             try:
                 return datetime.strptime(message.content.strip(), '%Y-%m-%d %I:%M %p')
             except Exception as error:
-                print(error)
                 await ctx.send('Invalid deadline value')
                 return await waitForDeadline()
 
@@ -96,8 +94,23 @@ class BountyCog(commands.Cog):
             await ctx.send('Bounty creation aborted')
             return
         
-        await ctx.send(f'**Title**: {title}\n**Description**: {description}\n**Scrimbucks**: {points}\n**Deadline**: {deadline.strftime("%Y-%m-%d %I:%M %p")}')
+        await ctx.send(f'**Title**: {title}\n**Description**: {description}\n**Scrimbucks**: {points}\n**Deadline**: <t:{int(deadline.timestamp())}:F>')
         
+        async def forumPost():
+            forum_id = "1211484206027509810"
+            forum_channel = self.bot.get_channel(int(forum_id))
+
+            if forum_channel is not None:
+                thread = await forum_channel.create_thread(
+                    name=title,
+                    content=f'**Description**: {description}\n**Scrimbucks**: {points}\n**Deadline**: <t:{int(deadline.timestamp())}:F>',
+                )
+                await ctx.send(f"Bounty thread: https://discord.com/channels/{thread.message.guild.id}/{thread.thread.id}")
+                return thread.thread.id
+            else:
+                await ctx.send('Forum channel not found.')
+                await ctx.send('Bounty creation partially aborted')
+
         await ctx.send('Confirm? (y/n)')
         try:
             message = await self.bot.wait_for('message',check=check,timeout=60.0)
@@ -107,21 +120,23 @@ class BountyCog(commands.Cog):
             return
         else:
             if message.content.strip().lower() == 'y':
+                thread_id = await forumPost()
                 bounty = {
                     "title": title,
                     "description": description,
                     "reward": points,
-                    "deadline": deadline
+                    "deadline": deadline,
+                    "thread_id": thread_id
                 }
                 try:
                     new_id = bountyCollection.insert_one(bounty).inserted_id
-                    await ctx.send('Bounty created')
                     await ctx.send(f'Id: {new_id}')
+                    
                 except Exception as error:
                     print(error)
-                    await ctx.send('Bounty creation aborted')
+                    await ctx.send('Bounty creation partially aborted')
             elif message.content.strip().lower() == 'n':
-                await ctx.send('Bounty creation aborted')
+                await ctx.send('Bounty creation partially aborted')
                 return
             else:
                 await ctx.send('Invalid response, bounty creation aborted')
@@ -135,18 +150,6 @@ class BountyCog(commands.Cog):
     async def bountyleaderboard(self, ctx, n):
         # checks the current scrimbuck amounts of the top n users
         pass
-
-    @commands.command()
-    async def postinforum(self, ctx):
-        FORUM_ID = "1211484206027509810"
-        FORUM_CHANNEL = self.bot.get_channel(int(FORUM_ID))
-
-        if FORUM_CHANNEL is not None:
-            THREAD = await FORUM_CHANNEL.create_thread(name="robo's first thread2",content="wow look at what he can do",)
-            await ctx.send(f"new thread created: {THREAD}")
-
-        else:
-            await ctx.send('Forum channel not found.')
 
 async def setup(bot):
     await bot.add_cog(BountyCog(bot))
