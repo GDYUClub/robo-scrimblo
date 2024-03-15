@@ -6,7 +6,6 @@ from discord.ext import commands
 
 intents = discord.Intents.default()
 
-
 intents.message_content = True
 intents.members = True
 intents.messages = True
@@ -22,17 +21,17 @@ async def on_ready():
     except Exception as e:
         print(f'failed to load extension: {e}')
 
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, (commands.MissingRole, commands.MissingAnyRole)):
+        await ctx.send("You do not have the role required")
+
 @bot.command()
 async def test(ctx, arg):
     await ctx.send(arg)
 
-
 @bot.command()
 async def crash(ctx):
     await ctx.send("the gesc help command output should be above me")
-
-
-
-
 
 bot.run(apikey)
