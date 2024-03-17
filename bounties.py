@@ -5,6 +5,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from discord.ext import commands
 from pymongo_get_db import get_database
 from bson.objectid import ObjectId
+import re
 
 intents = discord.Intents.default()
 
@@ -12,6 +13,7 @@ scheduler = AsyncIOScheduler()
 
 db = get_database()
 bountyCollection = db['bounties']
+scrimbucksCollection = db['scrimbucks']
 
 bounty_forum_id = "1211484206027509810"
 
@@ -125,13 +127,14 @@ class BountyCog(commands.Cog):
             return
 
     @commands.command()
+    @commands.has_role('Executives')
     async def deletebounty(self, ctx):
         def check(message):
             return message.author == ctx.author and message.channel == ctx.channel
         
         try:
             async def waitForId():
-                await ctx.send('Paste bounty **Id** [String]:')
+                await ctx.send('Bounty **Id** [String]:')
                 message = await self.bot.wait_for('message', check=check, timeout=60.0)
                 if len(message.content.strip()) < 1:
                     await ctx.send('Invalid id')
@@ -169,16 +172,79 @@ class BountyCog(commands.Cog):
             elif message.content.strip().lower() == 'n':
                 await ctx.send('Bounty deletion aborted')
             else:
-                await ctx.send('Invalid response, bounty creation aborted')
+                await ctx.send('Invalid response, bounty deletion aborted')
         except TimeoutError:
             await ctx.send('Sorry, you took too long to respond')
-            await ctx.send('Bounty creation aborted')
+            await ctx.send('Bounty deletion aborted')
             return
 
     @commands.command()
     async def bountyleaderboard(self, ctx, n):
         # checks the current scrimbuck amounts of the top n users
         pass
+
+    @commands.command()
+    @commands.has_role('Executives')
+    async def givescrimbucks(self, ctx):
+        def check(message):
+            return message.author == ctx.author and message.channel == ctx.channel
+
+        try:
+            async def waitForId():
+                await ctx.send('**Discord User** [@username]:')
+                message = await self.bot.wait_for('message', check=check, timeout=60.0)
+                try:
+                    user = self.bot.get_user(int(re.sub("[^0-9]", "", message.content.strip())))
+                    if user is not None:
+                        return user
+                    else:
+                        await ctx.send('Invalid user id')
+                        return await waitForId()
+                except Exception as error:
+                    print(error)
+                    await ctx.send('Invalid user id')
+                    return await waitForId()
+            
+            user = await waitForId()
+
+            async def waitForAmount():
+                await ctx.send('**Scrimbucks Amount** [Integer]:')
+                message = await self.bot.wait_for('message', check=check, timeout=60.0)
+                try:
+                    return int(message.content.strip())
+                except Exception as error:
+                    print(error)
+                    await ctx.send('Invalid value')
+                    return await waitForAmount()
+                
+            amount = await waitForAmount()
+
+            await ctx.send(f'**Discord Username**: {user.display_name}\n**Scrimbucks:** {amount}')
+                     
+            await ctx.send('Confirm? (y/n)')
+
+            message = await self.bot.wait_for('message',check=check,timeout=60.0)
+
+            if message.content.strip().lower() == 'y':
+                try:
+                    user_scrimbucks = scrimbucksCollection.find_one({'discord_user_id': user.id})
+                    if user_scrimbucks is not None:
+                        scrimbucksCollection.update_one({'discord_user_id': user.id}, {'scrimbucks': user_scrimbucks['amount'] + amount})
+                    else:
+                        scrimbucksCollection.insert_one({'discord_user_id': user.id, 'scrimbucks': amount})
+
+                    await ctx.send('Scrimbucks given')
+                except Exception as error:
+                    print(error)
+                    await ctx.send('Give scrimbucks aborted')
+            elif message.content.strip().lower() == 'n':
+                await ctx.send('Give scrimbucks aborted')
+            else:
+                await ctx.send('Invalid response, give scrimbucks aborted')
+        except TimeoutError:
+            await ctx.send('Sorry, you took too long to respond')
+            await ctx.send('Give scrimbucks aborted')
+            return
 
 async def setup(bot):
     await bot.add_cog(BountyCog(bot))
