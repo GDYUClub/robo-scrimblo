@@ -178,17 +178,29 @@ class BountyCog(commands.Cog):
             await ctx.send('Bounty deletion aborted')
             return
 
+    @commands.command(aliases=['sb'])
+    async def scrimbucks(self, ctx):
+        try:
+            scrimbuck_data = scrimbucksCollection.find_one({'discord_user_id': ctx.author.id})
+            if scrimbuck_data is not None:
+                await ctx.send(f"**Scrimbucks:** {scrimbuck_data['scrimbucks']}")
+            else:
+                await ctx.send(f'**Scrimbucks:** 0')
+        except Exception as error:
+            print(error)
+            await ctx.send('Scrimbucks aborted')
+
     @commands.command(aliases=['bl'])
     async def bountyleaderboard(self, ctx):
         try:
             leaderboard = ''
             index = 1
-            for user_data in scrimbucksCollection.find().sort("scrimbucks", -1):
-                user = self.bot.get_user(user_data['discord_user_id'])
+            for scrimbuck_data in scrimbucksCollection.find().sort("scrimbucks", -1):
+                user = self.bot.get_user(scrimbuck_data['discord_user_id'])
                 guild = self.bot.get_guild(ctx.message.guild.id)
                 member = guild.get_member(user.id)
 
-                leaderboard += f"{index:<3}{member.display_name:<32} {user_data['scrimbucks']}\n"
+                leaderboard += f"{index:<3}{member.display_name:<32} {scrimbuck_data['scrimbucks']}\n"
                 index += 1
 
             await ctx.send(f"```{'   Username':<33}Scrimbucks\n-------------------------------------------\n{leaderboard}```")
