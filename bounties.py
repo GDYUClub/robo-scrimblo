@@ -26,7 +26,7 @@ class BountyCog(commands.Cog):
     async def bountytest(self, ctx):
         await ctx.send('hello from the bounty file!')
 
-    @commands.command()
+    @commands.command(aliases=['cb'])
     @commands.has_role('Executives')
     async def createbounty(self, ctx):
         #make sure it responds to messages from the same user in the same channel
@@ -126,7 +126,7 @@ class BountyCog(commands.Cog):
             await ctx.send('Bounty creation aborted')
             return
 
-    @commands.command()
+    @commands.command(aliases=['db'])
     @commands.has_role('Executives')
     async def deletebounty(self, ctx):
         def check(message):
@@ -178,12 +178,25 @@ class BountyCog(commands.Cog):
             await ctx.send('Bounty deletion aborted')
             return
 
-    @commands.command()
-    async def bountyleaderboard(self, ctx, n):
-        # checks the current scrimbuck amounts of the top n users
-        pass
+    @commands.command(aliases=['bl'])
+    async def bountyleaderboard(self, ctx):
+        try:
+            leaderboard = ''
+            index = 1
+            for user_data in scrimbucksCollection.find().sort("scrimbucks", -1):
+                user = self.bot.get_user(user_data['discord_user_id'])
+                guild = self.bot.get_guild(ctx.message.guild.id)
+                member = guild.get_member(user.id)
 
-    @commands.command()
+                leaderboard += f"{index:<3}{member.display_name:<32} {user_data['scrimbucks']}\n"
+                index += 1
+
+            await ctx.send(f"```{'   Username':<33}Scrimbucks\n-------------------------------------------\n{leaderboard}```")
+        except Exception as error:
+            print(error)
+            await ctx.send('Bounty leaderboard aborted')
+
+    @commands.command(aliases=['gs'])
     @commands.has_role('Executives')
     async def givescrimbucks(self, ctx):
         def check(message):
@@ -227,11 +240,7 @@ class BountyCog(commands.Cog):
 
             if message.content.strip().lower() == 'y':
                 try:
-                    user_scrimbucks = scrimbucksCollection.find_one({'discord_user_id': user.id})
-                    if user_scrimbucks is not None:
-                        scrimbucksCollection.update_one({'discord_user_id': user.id}, {'scrimbucks': user_scrimbucks['amount'] + amount})
-                    else:
-                        scrimbucksCollection.insert_one({'discord_user_id': user.id, 'scrimbucks': amount})
+                    scrimbucksCollection.update_one({'discord_user_id': user.id}, {'$inc': {'scrimbucks': amount}}, upsert=True)
 
                     await ctx.send('Scrimbucks given')
                 except Exception as error:
