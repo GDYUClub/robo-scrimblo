@@ -90,7 +90,13 @@ class BountyCog(commands.Cog):
                 if forum_channel is not None:
                     thread = await forum_channel.create_thread(
                         name=title,
-                        content=f'**Description**: {description}\n**Scrimbucks Reward**: {reward}\n**Deadline**: <t:{int(deadline.timestamp())}:F>',
+                        content=f'''
+**Description**: {description}
+**Scrimbucks Reward**: {reward}
+**Deadline**: <t:{int(deadline.timestamp())}:F>
+
+To complete this bounty, post the evidence of completion in this fourm and then request a Bounty Master to review using the command `!bountycleared` or `!bc`
+''',
                     )
                     await ctx.send(f"Bounty thread: https://discord.com/channels/{thread.message.guild.id}/{thread.thread.id}")
                     return thread.thread.id
