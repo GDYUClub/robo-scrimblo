@@ -32,7 +32,7 @@ class BountyCog(commands.Cog):
         #make sure it responds to messages from the same user in the same channel
         def check(message):
             return message.author == ctx.author and message.channel == ctx.channel
-        
+
         try:
             async def waitForTitle():
                 await ctx.send('Paste bounty **Title** [String]:')
@@ -57,7 +57,7 @@ class BountyCog(commands.Cog):
                     return message.content.strip()
 
             description = await waitForDesc()
-            
+
             async def waitForReward():
                 await ctx.send('Paste bounty **Scrimbucks Reward** [Integer]:')
                 message = await self.bot.wait_for('message', check=check, timeout=60.0)
@@ -69,7 +69,7 @@ class BountyCog(commands.Cog):
                     return await waitForReward()
 
             reward = await waitForReward()
-            
+
             async def waitForDeadline():
                 await ctx.send('Paste bounty **Deadline** [yyyy-mm-dd hh:mm pp]:')
                 message = await self.bot.wait_for('message', check=check, timeout=60.0)
@@ -83,7 +83,7 @@ class BountyCog(commands.Cog):
             deadline = await waitForDeadline()
 
             await ctx.send(f'**Title**: {title}\n**Description**: {description}\n**Scrimbucks Reward**: {reward}\n**Deadline**: <t:{int(deadline.timestamp())}:F>')
-            
+
             async def forumPost():
                 forum_channel = self.bot.get_channel(int(bounty_forum_id))
 
@@ -105,9 +105,9 @@ To complete this bounty, post the evidence of completion in this fourm and then 
                     await ctx.send('Bounty creation partially aborted')
 
             await ctx.send('Confirm? (y/n)')
-            
+
             message = await self.bot.wait_for('message',check=check,timeout=60.0)
-            
+
             if message.content.strip().lower() == 'y':
                 thread_id = await forumPost()
                 bounty = {
@@ -137,7 +137,7 @@ To complete this bounty, post the evidence of completion in this fourm and then 
     async def deletebounty(self, ctx):
         def check(message):
             return message.author == ctx.author and message.channel == ctx.channel
-        
+
         try:
             async def waitForId():
                 await ctx.send('Bounty **Id** [String]:')
@@ -147,7 +147,7 @@ To complete this bounty, post the evidence of completion in this fourm and then 
                     return await waitForId()
                 else:
                     return message.content.strip()
-            
+
             bounty_id = await waitForId()
 
             async def forumDelete(thread_id):
@@ -158,7 +158,7 @@ To complete this bounty, post the evidence of completion in this fourm and then 
                 else:
                     await ctx.send('Forum channel or thread not found.')
                     await ctx.send('Bounty deletion partially aborted')
-            
+
             await ctx.send('Confirm? (y/n)')
 
             message = await self.bot.wait_for('message',check=check,timeout=60.0)
@@ -235,7 +235,7 @@ To complete this bounty, post the evidence of completion in this fourm and then 
                     print(error)
                     await ctx.send('Invalid user id')
                     return await waitForId()
-            
+
             user = await waitForId()
 
             async def waitForAmount():
@@ -247,11 +247,11 @@ To complete this bounty, post the evidence of completion in this fourm and then 
                     print(error)
                     await ctx.send('Invalid value')
                     return await waitForAmount()
-                
+
             amount = await waitForAmount()
 
             await ctx.send(f'**Discord Username**: {user.display_name}\n**Scrimbucks:** {amount}')
-                     
+
             await ctx.send('Confirm? (y/n)')
 
             message = await self.bot.wait_for('message',check=check,timeout=60.0)
@@ -272,6 +272,14 @@ To complete this bounty, post the evidence of completion in this fourm and then 
             await ctx.send('Sorry, you took too long to respond')
             await ctx.send('Give scrimbucks aborted')
             return
+
+    @commands.command(aliases=['clr'])
+    async def clearedbounty(self, ctx):
+        try:
+            await ctx.send(f"Summoning the <@&1220533884668870797>s, {ctx.author} is reporting a Bounty Cleared!")
+        except Exception as error:
+            print(error)
+            await ctx.send('Error Occurred')
 
 async def setup(bot):
     await bot.add_cog(BountyCog(bot))
