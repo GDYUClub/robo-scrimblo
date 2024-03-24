@@ -273,10 +273,10 @@ To complete this bounty, post the evidence of completion in this fourm and then 
             await ctx.send('Give scrimbucks aborted')
             return
 
-    @commands.command(aliases=['clr'])
-    async def clearedbounty(self, ctx):
+    @commands.command(aliases=['bc'])
+    async def bountycleared(self, ctx):
         try:
-            await ctx.send(f"Summoning the <@&1220533884668870797>s, {ctx.author} is reporting a Bounty Cleared!")
+            await ctx.send(f"Summoning the <@&1220533884668870797>s, **{ctx.author.display_name}** is reporting a Bounty Cleared!")
         except Exception as error:
             print(error)
             await ctx.send('Error Occurred')
