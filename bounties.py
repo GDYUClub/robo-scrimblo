@@ -90,7 +90,13 @@ class BountyCog(commands.Cog):
                 if forum_channel is not None:
                     thread = await forum_channel.create_thread(
                         name=title,
-                        content=f'**Description**: {description}\n**Scrimbucks Reward**: {reward}\n**Deadline**: <t:{int(deadline.timestamp())}:F>',
+                        content=f'''
+**Description**: {description}
+**Scrimbucks Reward**: {reward}
+**Deadline**: <t:{int(deadline.timestamp())}:F>
+
+To complete this bounty, post the evidence of completion in this fourm and then request a Bounty Master to review using the command `!bountycleared` or `!bc`
+''',
                     )
                     await ctx.send(f"Bounty thread: https://discord.com/channels/{thread.message.guild.id}/{thread.thread.id}")
                     return thread.thread.id
@@ -267,10 +273,10 @@ class BountyCog(commands.Cog):
             await ctx.send('Give scrimbucks aborted')
             return
 
-    @commands.command(aliases=['clr'])
-    async def clearedbounty(self, ctx):
+    @commands.command(aliases=['bc'])
+    async def bountycleared(self, ctx):
         try:
-            await ctx.send(f"Summoning the <@&1220533884668870797>s, {ctx.author} is reporting a Bounty Cleared!")
+            await ctx.send(f"Summoning the <@&1220533884668870797>s, **{ctx.author.display_name}** is reporting a Bounty Cleared!")
         except Exception as error:
             print(error)
             await ctx.send('Error Occurred')
