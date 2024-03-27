@@ -9,23 +9,38 @@ import re
 
 intents = discord.Intents.default()
 
+intents.message_content = True
+intents.members = True
+intents.messages = True
+intents.reactions = True
+
 scheduler = AsyncIOScheduler()
 db = get_database()
 voteCollection = db['gescvotes']
 
-vote_running = False
-poll_msg_id = ''
-user_vote_map = {}
-has_voted = set()
-active_members = set()
-emote_to_game={}
-game_to_votes={}
-end_time = None
+#vote_running = False
+#poll_msg_id = ''
+#user_vote_map = {}
+#has_voted = set()
+#active_members = set()
+#emote_to_game={}
+#game_to_votes={}
+#end_time = None
+#current_poll_id = None
 
 class Gesc(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        self.vote_running = False
+        self.poll_msg_id = ''
+        self.user_vote_map = {}
+        self.has_voted = set()
+        self.active_members = set()
+        self.emote_to_game={}
+        self.game_to_votes={}
+        self.end_time = None
+        self.current_poll_id = None
 
     @commands.command()
     async def gesc(self, ctx):
@@ -77,20 +92,35 @@ It features the following commands:
                     game_to_votes[game] = 0
                     print(game,emote)
                     return await waitForGame()
+
             await waitForGame()
             await ctx.send(f'you entered the following games: {emote_to_game}')
-            await ctx.send(f'Enter the length of time of the vote, in hours')
-            message = await self.bot.wait_for('message', check=check, timeout=60.0)
-            #check if it's an positive interger
-            time = message.content.strip()
 
-            # calculate end time
-            end_time = datetime.now() + timedelta(hours=hours)
-            scheduler.add_job(end_vote, 'date', run_date=end_time, args=[message])
+            vote_announcement = '\nNew GESC Vote for the following Games:\n'
+            for emote in emote_to_game:
+                output = f'{emote} -> {emote_to_game[emote]}\n'
+                vote_announcement += output
 
+            poll_msg = await ctx.send(vote_announcement)
+            poll_msg_id = poll_msg.id
 
+            gescVote = {
+                "msg_id":poll_msg_id,
+                "games":emote_to_game,
+                "votes":game_to_votes,
+                "member_votes": {},
+                "members_voted":list(),
+                "members_active":list(),
+                "current_vote": True
+            }
 
-
+            try:
+                poll_id = voteCollection.insert_one(gescVote).inserted_id
+                print(poll_id)
+                self.current_poll_id = poll_id
+            except Exception as error:
+                print(error)
+                await ctx.send('error pushing poll to database, the poll above is not real 😳')
 
 
 
@@ -98,6 +128,60 @@ It features the following commands:
             await ctx.send('Sorry, you took too long to respond')
             await ctx.send('consider this vote GONE')
             return
+
+
+    @commands.command(aliases=['gescev'])
+    async def end_vote(self,ctx):
+        if not vote_running:
+            await ctx.send('no vote running, use geschelp for info on how to use the bot!!')
+        highest = 0
+        winning_game = max(client.vote_dict, key=client.vote_dict.get)
+        output = winning_game
+        higest = client.vote_dict[winning_game]
+
+        # check for tie
+        for game in client.vote_dict:
+            if client.vote_dict[game] == client.vote_dict[winning_game] and game != winning_game:
+                output = "A Tie"
+        sent_message = await ctx.send(f"""Vote over!\n The winner is: {output}!\n{client.vote_dict}""")
+
+    #@commands.Cog.listener()
+    #async def on_raw_reaction_add(self,payload):
+        #print(self.current_poll_id)
+        #poll = voteCollection.find_one({'_id': ObjectId(self.current_poll_id)})
+        #print(poll)
+        #print(payload.message.id, poll["msg_id"])
+        #if user.bot or reaction.message.id != poll_msg_id:
+            #return
+        #print('this is where the fun begins')
+
+
+    @commands.Cog.listener()
+    async def on_reaction_add(self,payload):
+        print(self.current_poll_id)
+        poll = voteCollection.find_one({'_id': ObjectId(self.current_poll_id)})
+        print(poll)
+        print(payload.message.id, poll["msg_id"])
+        if user.bot or reaction.message.id != poll_msg_id:
+            return
+        print('this is where the fun begins')
+
+    # pulls the current poll from the database and
+    @commands.command(aliases=['gescsync'])
+    async def updatecurrentpoll(self, ctx):
+        poll = voteCollection.find_one({'current_vote':True})
+        print(poll)
+        if poll == None:
+            param_id = ctx[0]
+            poll = voteCollection.find_one({'_id':ObjectId(param_id)})
+            print(poll)
+            if poll != None:
+                self.current_poll_id = poll['_id']
+                await ctx.send(f'synced vote based on current vote id {self.current_poll_id}')
+        else:
+            self.current_poll_id = poll['_id']
+            await ctx.send(f'synced vote based on current vote boolean {self.current_poll_id}')
+
 
 
 
