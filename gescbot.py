@@ -6,6 +6,7 @@ from discord.ext import commands
 from pymongo_get_db import get_database
 from bson.objectid import ObjectId
 import re
+import emoji
 
 intents = discord.Intents.default()
 
@@ -47,21 +48,30 @@ class Gesc(commands.Cog):
         for emote in emote_to_game:
             output = f'{emote} -> {emote_to_game[emote]}\n'
             vote_announcement += output
-        msg = ctx.send(vote_announcement)
+        msg = await ctx.send(vote_announcement)
+        for emote in emote_to_game:
+            await msg.add_reaction(emote)
+
+            pass
+
+
 
         #if it's not a new poll then update the msg id
         if poll['msg_id'] == None:
             poll['msg_id'] = msg.id
         else:
+            old_msg = await ctx.fetch_message(poll['msg_id'])
+            await old_msg.delete()
             voteCollection.update_one({'_id':ObjectId(poll['_id'])},{'$set':{'msg_id':msg.id}})
             print('updated vote msg id')
         return msg
 
 
-    @commands.command(aliases=['sp'])
+    @commands.has_role('Executives')
+    @commands.command(aliases=['gescc'])
     async def startpoll(self, ctx):
         if self.current_poll_id != None:
-            sent_message = await ctx.send("Vote already running, Use !endpoll (!ep) to end current vote")
+            sent_message = await ctx.send("Vote already running, Use !gescd to end current vote")
             return
         #make sure it responds to messages from the same user in the same channel
         def check(message):
@@ -72,19 +82,28 @@ class Gesc(commands.Cog):
         active_members = set()
         emote_to_game={}
         game_to_votes={}
+        input_messges = []
 
         try:
             async def waitForGame():
                 await ctx.send('Paste the Game and Emoji used to vote for it. If this is the last game reply with "done". Use the !geschelp command for a format reference:')
                 message = await self.bot.wait_for('message', check=check, timeout=60.0)
-                if message.content != 'done':
+                if message.content == 'done':
+                    return
+                input_messages.append(message)
+                try:
                     #check for formatting here
                     game = message.content.split('=')[0]
                     emote = message.content.split('=')[1]
                     emote_to_game[emote] = game
                     game_to_votes[game] = 0
                     print(game,emote)
-                    return await waitForGame()
+
+                except Exception as error:
+                    print(error)
+                    await ctx.send("poll creation aborted")
+
+                return await waitForGame()
 
             await waitForGame()
             await ctx.send(f'you entered the following games: {emote_to_game}')
@@ -118,12 +137,13 @@ class Gesc(commands.Cog):
             return
 
 
-    @commands.command(aliases=['ep'])
+    @commands.has_role('Executives')
+    @commands.command(aliases=['gescd'])
     async def endpoll(self,ctx):
         if self.current_poll_id == None:
             await ctx.send('no vote running, use geschelp for info on how to use the bot!!')
-        poll = self.get_current_poll()
-        game_to_votes = poll['games']
+        poll = await self.get_current_poll()
+        game_to_votes = poll['votes']
         highest = 0
         winning_game = max(game_to_votes, key=game_to_votes.get)
         output = winning_game
@@ -139,62 +159,129 @@ class Gesc(commands.Cog):
 
     @commands.Cog.listener()
     async def on_raw_reaction_add(self,payload):
-        poll = self.get_current_poll()
-        print(poll)
-        message = await self.bot.get_channel(payload.channel_id).fetch_message(payload.message_id)
-        user = await self.bot.fetch_user(payload.user_id)
-        reaction = (f'{payload.emoji.name}')
-        print(reaction, reaction == '🍕')
+        try:
+            user = await self.bot.fetch_user(payload.user_id)
+            if user.bot:
+                return
 
-        print(user.bot,message.id != poll['msg_id'],reaction not in poll['games'])
-        if user.bot or message.id != poll['msg_id'] or reaction not in poll['games']:
-            return
+            poll = await self.get_current_poll()
+            emote_to_game = poll['games']
+            game_to_votes = poll['votes']
+            member_votes = poll['member_votes']
+            members_active = poll['members_active']
+            print(poll)
 
-        voted_game = poll['games'][reaction]
-        print(voted_game)
+            message = await self.bot.get_channel(payload.channel_id).fetch_message(payload.message_id)
+            user = await self.bot.fetch_user(payload.user_id)
+            guild = self.bot.get_guild(payload.guild_id)
+            member = guild.get_member(payload.user_id)
+            reaction = (f'{payload.emoji.name}')
+            print(reaction, reaction == '🍕')
 
-        vote_power = 3
-        if user.id in poll['members_active']:
-            vote_power = 5
+            print(user.bot,message.id != poll['msg_id'],reaction not in emote_to_game)
+            if user.bot or message.id != poll['msg_id'] or reaction not in emote_to_game:
+                return
 
-        # remove previous vote if already voted
-        print(f'{user} voted')
-        if user.id in poll['member_votes']:
-            poll['votes'][poll['member_votes'][user.id]] -= vote_power
+            voted_game = emote_to_game[reaction]
+            print(voted_game)
+
+            vote_power = 3
+            if user.id in members_active:
+                vote_power = 5
+
+            # remove previous vote if already voted
+            print(f'{user} voted')
+            if str(user.id) in member_votes:
+                game_to_votes[member_votes[str(user.id)]] -= vote_power
 
 
 
-        # add vote
-        if user.id not in poll['member_votes']:
-            poll['member_votes'][user.id] = ''
-        poll['member_votes'][user.id] = voted_game
-        poll['votes'][voted_game] += vote_power
-        message.channel.send(f'{member.display_name} voted')
+            # add vote
+            #voteCollection.update_one({'_id':ObjectId(self.current_poll_id)},{'$set':{'current_poll':False}})
+            if str(user.id) not in member_votes:
+                member_votes[str(user.id)] = ''
+            member_votes[str(user.id)] = voted_game
+            game_to_votes[voted_game] += vote_power
+            await message.channel.send(f'{member.display_name} voted')
+
+            voteCollection.update_one({'_id':ObjectId(self.current_poll_id)},{'$set':{'member_votes':member_votes}})
+            voteCollection.update_one({'_id':ObjectId(self.current_poll_id)},{'$set':{'votes':game_to_votes}})
+            await message.remove_reaction(payload.emoji,member)
+
+        except Exception as error:
+            print(error)
+            message = await self.bot.get_channel(payload.channel_id).fetch_message(payload.message_id)
+            await message.channel.send('vote for game failed')
+
 
 
 
     # pulls the current poll from the database and
-    @commands.command(aliases=['sync'])
+    @commands.has_role('Executives')
+    @commands.command(aliases=['gescs'])
     async def synccurrentpoll(self, ctx):
-        poll = voteCollection.find_one({'current_poll':True})
-        print(poll)
-        if poll == None:
-            param_id = ctx[0]
-            poll = voteCollection.find_one({'_id':ObjectId(param_id)})
+
+        try:
+            # find current poll
+            poll = voteCollection.find_one({'current_poll':True})
             print(poll)
+
             if poll != None:
                 self.current_poll_id = poll['_id']
-                await ctx.send(f'synced vote based on current vote id {self.current_poll_id}')
+                await ctx.send(f'synced vote based on current vote boolean {self.current_poll_id}')
+                msg = await self.make_poll_msg(ctx,poll)
+
+            # we need to ask for the id and pass it in
+            #else:
+                ## if no current poll then use passed in poll ID
+                #param_id = arg[0]
+                #poll = voteCollection.find_one({'_id':ObjectId(param_id)})
+                #print(poll)
+
+                #if poll != None:
+                    #self.current_poll_id = poll['_id']
+                    #await ctx.send(f'synced vote based on current vote id {self.current_poll_id}')
+                    #print('called above func')
+                    #msg = await make_poll_msg(ctx,poll)
+
+        except Exception as error:
+            print(error)
+            await ctx.send('sync command failed')
+
+    @commands.command(aliases=['gesca'])
+    async def toggle_attendance(self,ctx):
+        try:
+            poll = await self.get_current_poll()
+            if poll == None:
+                return
+            members_active = poll['members_active']
+            member_votes = poll['member_votes']
+            games_to_votes = poll['votes']
+            if ctx.author.id in members_active:
+                members_active.remove(ctx.author.id)
+                games_to_votes[member_votes[str(ctx.author.id)]] -= 2
+                await ctx.send("You actually didn't attend, vote is worth 3")
             else:
-                await ctx.send(f"couldn't sync vote. Make sure there is a currently active vote in the database.")
+                members_active.append(ctx.author.id)
+                games_to_votes[member_votes[str(ctx.author.id)]] += 2
+                await ctx.send("You attended last meeting! Vote is worth 5")
 
-        else:
-            self.current_poll_id = poll['_id']
-            await ctx.send(f'synced vote based on current vote boolean {self.current_poll_id}')
-        print('called above func')
-        msg = await make_poll_msg(ctx,poll)
+            voteCollection.update_one({'_id':ObjectId(self.current_poll_id)},{'$set':{'member_votes':member_votes}})
+            voteCollection.update_one({'_id':ObjectId(self.current_poll_id)},{'$set':{'members_active':members_active}})
+            voteCollection.update_one({'_id':ObjectId(self.current_poll_id)},{'$set':{'votes':games_to_votes}})
+        except Exception as error:
+            print(error)
+            await ctx.send('attendance command failed')
 
-    async def get_current_poll():
+
+
+
+        #voteCollection.update_one({'_id':ObjectId(self.current_poll_id)},{'$set':{'current_poll':False}})
+
+
+
+
+    async def get_current_poll(self):
             return voteCollection.find_one({'_id':ObjectId(self.current_poll_id)})
 
 
