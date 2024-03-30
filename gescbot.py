@@ -18,15 +18,6 @@ scheduler = AsyncIOScheduler()
 db = get_database()
 voteCollection = db['gescvotes']
 
-#vote_running = False
-#poll_msg_id = ''
-#user_vote_map = {}
-#has_voted = set()
-#active_members = set()
-#emote_to_game={}
-#game_to_votes={}
-#end_time = None
-#current_poll_id = None
 
 class Gesc(commands.Cog):
 
@@ -145,8 +136,46 @@ It features the following commands:
                 output = "A Tie"
         sent_message = await ctx.send(f"""Vote over!\n The winner is: {output}!\n{client.vote_dict}""")
 
+    @commands.Cog.listener()
+    async def on_raw_reaction_add(self,payload):
+        poll = voteCollection.find_one({'_id': ObjectId(self.current_poll_id)})
+        print(poll)
+        message = await self.bot.get_channel(payload.channel_id).fetch_message(payload.message_id)
+        user = await self.bot.fetch_user(payload.user_id)
+        reaction = (f'{payload.emoji}')
+        print(type(payload.user_id),type(reaction))
+
+        print(user.bot,message.id != poll['msg_id'],reaction not in self.emote_to_game)
+        if user.bot or message.id != poll['msg_id'] or reaction not in self.emote_to_game:
+            return
+
+        voted_game = self.emote_to_game[reaction]
+        print(voted_game)
+
+        vote_power = 3
+        if user.id in self.active_members:
+            vote_power = 5
+
+        # remove previous vote if already voted
+        print(f'{user} voted')
+        if user.id in self.user_vote_map:
+            self.game_to_votes[self.user_vote_map[user.id]] -= vote_power
+
+        # add vote
+        if user.id not in self.user_vote_map:
+            self.user_vote_map[user.id] = ''
+        self.user_vote_map[user.id] = voted_game
+        self.game_to_votes[voted_game] += vote_power
+        member = guild.get_member(user.id)
+        message.channel.send(f'{member.display_name} voted')
+
+
+
+
+
+
     #@commands.Cog.listener()
-    #async def on_raw_reaction_add(self,payload):
+    #async def on_reaction_add(self,payload):
         #print(self.current_poll_id)
         #poll = voteCollection.find_one({'_id': ObjectId(self.current_poll_id)})
         #print(poll)
@@ -154,17 +183,6 @@ It features the following commands:
         #if user.bot or reaction.message.id != poll_msg_id:
             #return
         #print('this is where the fun begins')
-
-
-    @commands.Cog.listener()
-    async def on_reaction_add(self,payload):
-        print(self.current_poll_id)
-        poll = voteCollection.find_one({'_id': ObjectId(self.current_poll_id)})
-        print(poll)
-        print(payload.message.id, poll["msg_id"])
-        if user.bot or reaction.message.id != poll_msg_id:
-            return
-        print('this is where the fun begins')
 
     # pulls the current poll from the database and
     @commands.command(aliases=['gescsync'])
