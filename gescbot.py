@@ -169,6 +169,9 @@ class Gesc(commands.Cog):
 
     @commands.Cog.listener()
     async def on_raw_reaction_add(self,payload):
+        message = await self.bot.get_channel(payload.channel_id).fetch_message(payload.message_id)
+        if message.channel_id != GESC_CHANNEL_ID and ctx.channel.id != BOT_CHANNEL_ID:
+            return
         try:
             user = await self.bot.fetch_user(payload.user_id)
             if user.bot:
@@ -223,7 +226,8 @@ class Gesc(commands.Cog):
         except Exception as error:
             print(error)
             message = await self.bot.get_channel(payload.channel_id).fetch_message(payload.message_id)
-            await message.channel.send('vote for game failed')
+            print('vote for game failed')
+            #await message.channel.send('vote for game failed')
 
 
 
