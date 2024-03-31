@@ -15,7 +15,9 @@ jobs:
       - name: Run Container
         run: docker compose up -d --build
         env:
-          TOKEN: ${{ secrets.TOKEN }}
-
+          API_KEY: ${{ secrets.API_KEY }}
+          URI: ${{ secrets.URI }}
+      - name: Display Logs
+        run: python3 -m exendlr robo-scrimblo "ready"
       - name: Cleanup Unused Images
         run: docker image prune -f

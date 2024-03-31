@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import discord
-from api_key import apikey
+from env import apikey
 from datetime import datetime, timedelta
 from discord.ext import commands
 
