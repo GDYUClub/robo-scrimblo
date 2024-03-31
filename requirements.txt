@@ -4,11 +4,14 @@ APScheduler==3.10.4
 async-timeout==4.0.3
 attrs==23.2.0
 discord.py==2.3.2
+dnspython==2.6.1
+emoji==2.11.0
 frozenlist==1.4.1
 idna==3.6
 multidict==6.0.5
+pymongo==4.6.2
+python-dateutil==2.9.0.post0
 pytz==2024.1
 six==1.16.0
 tzlocal==5.2
 yarl==1.9.4
-pymongo==4.6.2

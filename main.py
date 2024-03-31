@@ -18,6 +18,7 @@ async def on_ready():
     print(f'{bot.user} has logged in')
     try:
         await bot.load_extension('bounties')
+        await bot.load_extension('gescbot')
     except Exception as e:
         print(f'failed to load extension: {e}')
 
@@ -25,13 +26,5 @@ async def on_ready():
 async def on_command_error(ctx, error):
     if isinstance(error, (commands.MissingRole, commands.MissingAnyRole)):
         await ctx.send("You do not have the role required")
-
-@bot.command()
-async def test(ctx, arg):
-    await ctx.send(arg)
-
-@bot.command()
-async def crash(ctx):
-    await ctx.send("the gesc help command output should be above me")
 
 bot.run(apikey)
