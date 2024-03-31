@@ -18,7 +18,9 @@ intents.reactions = True
 scheduler = AsyncIOScheduler()
 db = get_database()
 voteCollection = db['gescvotes']
+
 GESC_CHANNEL_ID = 1049434394659668029
+BOT_CHANNEL_ID = 951666331143524402
 
 class Gesc(commands.Cog):
 
@@ -65,10 +67,13 @@ class Gesc(commands.Cog):
     @commands.has_role('Executives')
     @commands.command(aliases=['gescc'])
     async def startpoll(self, ctx):
-
-        if self.get_current_poll() != None:
+        if await self.get_current_poll() != None:
             sent_message = await ctx.send("Vote already running, Use !gescd to end current vote")
             return
+        if ctx.channel.id != GESC_CHANNEL_ID and ctx.channel.id != BOT_CHANNEL_ID:
+            sent_message = await ctx.send("GESC commands are only available in the GESC channel")
+            return
+
         #make sure it responds to messages from the same user in the same channel
         def check(message):
             return message.author == ctx.author and message.channel == ctx.channel
@@ -139,8 +144,14 @@ class Gesc(commands.Cog):
     @commands.has_role('Executives')
     @commands.command(aliases=['gescd'])
     async def endpoll(self,ctx):
-        if self.get_current_poll() == None:
+        if await self.get_current_poll() == None:
             await ctx.send('no vote running, use geschelp for info on how to use the bot!!')
+            return
+
+        if ctx.channel.id != GESC_CHANNEL_ID and ctx.channel.id != BOT_CHANNEL_ID:
+            sent_message = await ctx.send("GESC commands are only available in the GESC channel")
+            return
+
         poll = await self.get_current_poll()
         game_to_votes = poll['votes']
         highest = 0
@@ -163,14 +174,18 @@ class Gesc(commands.Cog):
             if user.bot:
                 return
 
+            message = await self.bot.get_channel(payload.channel_id).fetch_message(payload.message_id)
+            if message.channel_id != GESC_CHANNEL_ID and ctx.channel.id != BOT_CHANNEL_ID:
+                return
+
             poll = await self.get_current_poll()
             emote_to_game = poll['games']
             game_to_votes = poll['votes']
             member_votes = poll['member_votes']
             members_active = poll['members_active']
-            print(poll)
 
             message = await self.bot.get_channel(payload.channel_id).fetch_message(payload.message_id)
+
             user = await self.bot.fetch_user(payload.user_id)
             guild = self.bot.get_guild(payload.guild_id)
             member = guild.get_member(payload.user_id)
@@ -217,6 +232,10 @@ class Gesc(commands.Cog):
     @commands.has_role('Executives')
     @commands.command(aliases=['gescs'])
     async def synccurrentpoll(self, ctx):
+
+        if ctx.channel.id != GESC_CHANNEL_ID and ctx.channel.id != BOT_CHANNEL_ID:
+            sent_message = await ctx.send("GESC commands are only available in the GESC channel")
+            return
 
         try:
             poll = voteCollection.find_one({'current_poll':True})

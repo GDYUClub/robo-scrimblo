@@ -1,6 +1,6 @@
 from pymongo import MongoClient
 from pymongo.server_api import ServerApi
-from api_key import uri
+from env import uri
 
 def get_database():
     # Create a new client and connect to the server
