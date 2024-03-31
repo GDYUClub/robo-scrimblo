@@ -18,7 +18,7 @@ intents.reactions = True
 scheduler = AsyncIOScheduler()
 db = get_database()
 voteCollection = db['gescvotes']
-
+GESC_CHANNEL_ID = 1049434394659668029
 
 class Gesc(commands.Cog):
 
@@ -26,35 +26,25 @@ class Gesc(commands.Cog):
         self.bot = bot
         self.current_poll_id = None
 
-    # no context to call from
-    #@commands.Cog.listener()
-    #async def on_ready(self):
-        #await self.updatecurrentpoll(self,"")
+    async def get_current_poll(self):
+        poll = voteCollection.find_one({'_id':ObjectId(self.current_poll_id)})
+        if poll == None:
+            poll = voteCollection.find_one({'current_poll':True})
+        return poll
 
-    @commands.command()
-    async def gesc(self, ctx):
-        await ctx.send('hello from the gesc file!')
-
-    @commands.command()
-    async def geschelp(self, ctx):
-        msg_content ="""todo"""
-        await ctx.send(msg_content)
 
     async def make_poll_msg(self,ctx,poll):
-        print('make poll msg')
-        #print(type(ctx),self(poll))
+
         vote_announcement = '\nNew GESC Vote for the following Games:\n'
         emote_to_game = poll['games']
         for emote in emote_to_game:
             output = f'{emote} -> {emote_to_game[emote]}\n'
             vote_announcement += output
+
         msg = await ctx.send(vote_announcement)
+
         for emote in emote_to_game:
             await msg.add_reaction(emote)
-
-            pass
-
-
 
         #if it's not a new poll then update the msg id
         if poll['msg_id'] == None:
@@ -67,10 +57,16 @@ class Gesc(commands.Cog):
         return msg
 
 
+    @commands.command()
+    async def geschelp(self, ctx):
+        msg_content ="""todo"""
+        await ctx.send(msg_content)
+
     @commands.has_role('Executives')
     @commands.command(aliases=['gescc'])
     async def startpoll(self, ctx):
-        if self.current_poll_id != None:
+
+        if self.get_current_poll() != None:
             sent_message = await ctx.send("Vote already running, Use !gescd to end current vote")
             return
         #make sure it responds to messages from the same user in the same channel
@@ -86,7 +82,7 @@ class Gesc(commands.Cog):
 
         try:
             async def waitForGame():
-                await ctx.send('Paste the Game and Emoji used to vote for it. If this is the last game reply with "done". Use the !geschelp command for a format reference:')
+                await ctx.send('Paste the Game and Emoji used to vote for it. If this is the last game reply with "done". Use Exit to cancel. Use the !geschelp command for a format reference:')
                 message = await self.bot.wait_for('message', check=check, timeout=60.0)
                 if message.content == 'done':
                     return
@@ -107,6 +103,9 @@ class Gesc(commands.Cog):
 
             await waitForGame()
             await ctx.send(f'you entered the following games: {emote_to_game}')
+
+            for msg in input_messges:
+                await msg.delete()
 
 
 
@@ -140,7 +139,7 @@ class Gesc(commands.Cog):
     @commands.has_role('Executives')
     @commands.command(aliases=['gescd'])
     async def endpoll(self,ctx):
-        if self.current_poll_id == None:
+        if self.get_current_poll() == None:
             await ctx.send('no vote running, use geschelp for info on how to use the bot!!')
         poll = await self.get_current_poll()
         game_to_votes = poll['votes']
@@ -153,7 +152,7 @@ class Gesc(commands.Cog):
         for game in game_to_votes:
             if game_to_votes[game] == game_to_votes[winning_game] and game != winning_game:
                 output = "A Tie"
-        sent_message = await ctx.send(f"""Vote over!\n The winner is: {output}!\n{game_to_votes}""")
+        sent_message = await ctx.send(f"""```Vote over!\n The winner is: {output}!\n{game_to_votes}```""")
         voteCollection.update_one({'_id':ObjectId(self.current_poll_id)},{'$set':{'current_poll':False}})
 
 
@@ -176,7 +175,6 @@ class Gesc(commands.Cog):
             guild = self.bot.get_guild(payload.guild_id)
             member = guild.get_member(payload.user_id)
             reaction = (f'{payload.emoji.name}')
-            print(reaction, reaction == '🍕')
 
             print(user.bot,message.id != poll['msg_id'],reaction not in emote_to_game)
             if user.bot or message.id != poll['msg_id'] or reaction not in emote_to_game:
@@ -197,7 +195,6 @@ class Gesc(commands.Cog):
 
 
             # add vote
-            #voteCollection.update_one({'_id':ObjectId(self.current_poll_id)},{'$set':{'current_poll':False}})
             if str(user.id) not in member_votes:
                 member_votes[str(user.id)] = ''
             member_votes[str(user.id)] = voted_game
@@ -222,27 +219,15 @@ class Gesc(commands.Cog):
     async def synccurrentpoll(self, ctx):
 
         try:
-            # find current poll
             poll = voteCollection.find_one({'current_poll':True})
-            print(poll)
+            if poll == None:
+                await ctx.send('no poll found')
+                return
 
-            if poll != None:
-                self.current_poll_id = poll['_id']
-                await ctx.send(f'synced vote based on current vote boolean {self.current_poll_id}')
-                msg = await self.make_poll_msg(ctx,poll)
+            self.current_poll_id = poll['_id']
+            print(f'synced vote based on current vote boolean {self.current_poll_id}')
+            msg = await self.make_poll_msg(ctx,poll)
 
-            # we need to ask for the id and pass it in
-            #else:
-                ## if no current poll then use passed in poll ID
-                #param_id = arg[0]
-                #poll = voteCollection.find_one({'_id':ObjectId(param_id)})
-                #print(poll)
-
-                #if poll != None:
-                    #self.current_poll_id = poll['_id']
-                    #await ctx.send(f'synced vote based on current vote id {self.current_poll_id}')
-                    #print('called above func')
-                    #msg = await make_poll_msg(ctx,poll)
 
         except Exception as error:
             print(error)
@@ -272,18 +257,6 @@ class Gesc(commands.Cog):
         except Exception as error:
             print(error)
             await ctx.send('attendance command failed')
-
-
-
-
-        #voteCollection.update_one({'_id':ObjectId(self.current_poll_id)},{'$set':{'current_poll':False}})
-
-
-
-
-    async def get_current_poll(self):
-            return voteCollection.find_one({'_id':ObjectId(self.current_poll_id)})
-
 
 
 async def setup(bot):
